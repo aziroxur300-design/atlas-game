@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>ATLAS — L'Héritage des Murs</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #101010;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.game {
+    max-width: 650px;
+    margin: auto;
+    padding: 25px 18px 60px;
+}
+
+h1 {
+    text-align: center;
+    font-size: 42px;
+    margin-bottom: 5px;
+}
+
+h2 {
+    text-align: center;
+    color: #bbb;
+}
+
+h3 {
+    margin-top: 25px;
+}
+
+.card {
+    background: #202020;
+    border-radius: 15px;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    border-radius: 9px;
+    border: none;
+    font-size: 17px;
+    margin: 10px 0;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin: 7px 0;
+    border: none;
+    border-radius: 9px;
+    background: #333;
+    color: white;
+    font-size: 16px;
+}
+
+button:active {
+    transform: scale(.98);
+}
+
+.stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+}
+
+.good {
+    color: #70e070;
+}
+
+.bad {
+    color: #ff7070;
+}
+
+.event {
+    background: #181818;
+    border-left: 4px solid #aaa;
+    padding: 15px;
+    margin: 15px 0;
+    line-height: 1.5;
+}
+
+.small {
+    color: #999;
+    font-size: 13px;
+}
+
+#stats {
+    background: #181818;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid #444;
+    margin: 18px 0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="game" id="game"></div>
+
+<script>
+
+/* =====================================================
+   ATLAS — L'HÉRITAGE DES MURS
+   VERSION 1
+===================================================== */
+
+
+/* =====================================================
+   DONNÉES DU JOUEUR
+===================================================== */
+
+let player = {
+
+    name: "",
+
+    origin: "",
+
+    day: 1,
+
+    level: 1,
+
+    xp: 0,
+
+    hp: 100,
+
+    maxHp: 100,
+
+    money: 50,
+
+    force: 5,
+
+    agility: 5,
+
+    intelligence: 5,
+
+    courage: 5,
+
+    reputation: 0,
+
+    morale: 70,
+
+    wins: 0,
+
+    losses: 0,
+
+    inventory: [
+        "Ration"
+    ],
+
+    relations: {
+
+        Elias: 0,
+        Mira: 0,
+        Kael: 0
+
+    }
+
+};
+
+
+/* =====================================================
+   OUTILS
+===================================================== */
+
+function gameDiv() {
+
+    return document.getElementById("game");
+
+}
+
+
+function saveGame() {
+
+    localStorage.setItem(
+        "atlasSave",
+        JSON.stringify(player)
+    );
+
+}
+
+
+function loadGame() {
+
+    let save = localStorage.getItem("atlasSave");
+
+    if (!save) {
+
+        alert("Aucune sauvegarde trouvée.");
+
+        return;
+
+    }
+
+    player = JSON.parse(save);
+
+    showGame();
+
+}
+
+
+function random(min, max) {
+
+    return Math.floor(
+        Math.random() * (max - min + 1)
+    ) + min;
+
+}
+
+
+function addXP(amount) {
+
+    player.xp += amount;
+
+    let needed = player.level * 100;
+
+    while (player.xp >= needed) {
+
+        player.xp -= needed;
+
+        player.level++;
+
+        player.maxHp += 10;
+
+        player.hp = player.maxHp;
+
+        player.force++;
+
+        player.agility++;
+
+        player.intelligence++;
+
+        player.courage++;
+
+        needed = player.level * 100;
+
+        alert(
+            "⭐ Niveau supérieur !\n\n" +
+            "Tu es maintenant niveau " +
+            player.level + "."
+        );
+
+    }
+
+}
+
+
+function changeHP(amount) {
+
+    player.hp += amount;
+
+    if (player.hp > player.maxHp)
+        player.hp = player.maxHp;
+
+    if (player.hp < 0)
+        player.hp = 0;
+
+}
+
+
+function relation(name, amount) {
+
+    player.relations[name] += amount;
+
+}
+
+
+function hasItem(item) {
+
+    return player.inventory.includes(item);
+
+}
+
+
+function addItem(item) {
+
+    if (!hasItem(item)) {
+
+        player.inventory.push(item);
+
+    }
+
+}
+
+
+function nextDay() {
+
+    player.day++;
+
+    randomEvent();
+
+}
+
+
+/* =====================================================
+   ÉCRAN PRINCIPAL
+===================================================== */
+
+function showGame() {
+
+    gameDiv().innerHTML = `
+
+        <h1>ATLAS</h1>
+
+        <h2>L'Héritage des Murs</h2>
+
+        <div class="card">
+
+            <h3>
+                ${player.name}
+            </h3>
+
+            <p>
+                Jour ${player.day}
+                • Niveau ${player.level}
+            </p>
+
+            <div id="stats">
+
+                <div class="stat">
+                    ❤️ Santé
+                    <span>
+                    ${player.hp}/${player.maxHp}
+                    </span>
+                </div>
+
+                <div class="stat">
+                    ⚔️ Force
+                    <span>${player.force}</span>
+                </div>
+
+                <div class="stat">
+                    🏃 Agilité
+                    <span>${player.agility}</span>
+                </div>
+
+                <div class="stat">
+                    🧠 Intelligence
+                    <span>${player.intelligence}</span>
+                </div>
+
+                <div class="stat">
+                    🦁 Courage
+                    <span>${player.courage}</span>
+                </div>
+
+                <div class="stat">
+                    ⭐ XP
+                    <span>${player.xp}</span>
+                </div>
+
+                <div class="stat">
+                    💰 Argent
+                    <span>${player.money}</span>
+                </div>
+
+                <div class="stat">
+                    🎖️ Réputation
+                    <span>${player.reputation}</span>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <h3>🎒 Inventaire</h3>
+
+            <p>
+                ${
+                    player.inventory.length
+                    ?
+                    player.inventory.join(" • ")
+                    :
+                    "Vide"
+                }
+            </p>
+
+        </div>
+
+        <div class="card">
+
+            <h3>🤝 Relations</h3>
+
+            <p>
+                Elias : ${player.relations.Elias}
+            </p>
+
+            <p>
+                Mira : ${player.relations.Mira}
+            </p>
+
+            <p>
+                Kael : ${player.relations.Kael}
+            </p>
+
+        </div>
+
+        <button onclick="story()">
+            📖 Continuer l'histoire
+        </button>
+
+        <button onclick="training()">
+            🏋️ S'entraîner
+        </button>
+
+        <button onclick="mission()">
+            ⚔️ Faire une mission
+        </button>
+
+        <button onclick="saveGame()">
+            💾 Sauvegarder
+        </button>
+
+        <button onclick="resetGame()">
+            🗑️ Nouvelle partie
+        </button>
+
+    `;
+
+}
+
+
+/* =====================================================
+   CRÉATION DU PERSONNAGE
+===================================================== */
+
+function startCreation() {
+
+    gameDiv().innerHTML = `
+
+        <h1>ATLAS</h1>
+
+        <h2>Création du personnage</h2>
+
+        <div class="card">
+
+            <input
+                id="nameInput"
+                placeholder="Nom de ton personnage"
+            >
+
+            <h3>
+                Choisis ton origine
+            </h3>
+
+            <button onclick="chooseOrigin('Citoyen')">
+                🛡️ Citoyen
+            </button>
+
+            <button onclick="chooseOrigin('Militaire')">
+                ⚔️ Famille militaire
+            </button>
+
+            <button onclick="chooseOrigin('Frontière')">
+                🏹 Enfant de la frontière
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+
+function chooseOrigin(origin) {
+
+    let name =
+        document.getElementById("nameInput").value;
+
+    if (!name.trim()) {
+
+        alert("Écris un nom.");
+
+        return;
+
+    }
+
+    player.name = name;
+
+    player.origin = origin;
+
+
+    if (origin === "Citoyen") {
+
+        player.intelligence = 9;
+
+        player.courage = 7;
+
+        player.force = 5;
+
+        player.agility = 5;
+
+    }
+
+
+    if (origin === "Militaire") {
+
+        player.force = 9;
+
+        player.agility = 8;
+
+        player.courage = 10;
+
+        player.intelligence = 5;
+
+    }
+
+
+    if (origin === "Frontière") {
+
+        player.agility = 10;
+
+        player.intelligence = 8;
+
+        player.courage = 9;
+
+        player.force = 6;
+
+    }
+
+
+    saveGame();
+
+    introduction();
+
+}
+
+
+/* =====================================================
+   INTRODUCTION
+===================================================== */
+
+function introduction() {
+
+    gameDiv().innerHTML = `
+
+        <h1>Jour 1</h1>
+
+        <div class="event">
+
+            <p>
+            Le soleil se lève derrière les immenses
+            fortifications qui protègent le royaume.
+            </p>
+
+            <p>
+            Depuis ton enfance, on te raconte que
+            les créatures qui vivent au-delà des murs
+            ne sont que des monstres sans intelligence.
+            </p>
+
+            <p>
+            Aujourd'hui, tu entres à l'académie.
+            Ton véritable parcours commence.
+            </p>
+
+        </div>
+
+        <button onclick="firstChoice()">
+            Entrer dans l'académie
+        </button>
+
+    `;
+
+}
+
+
+function firstChoice() {
+
+    gameDiv().innerHTML = `
+
+        <h2>Devant l'académie</h2>
+
+        <div class="event">
+
+            Trois recrues attirent ton attention.
+
+            <br><br>
+
+            <b>Elias</b> semble très sûr de lui.
+
+            <br>
+
+            <b>Mira</b> observe tout le monde
+            en silence.
+
+            <br>
+
+            <b>Kael</b> s'entraîne seul.
+
+        </div>
+
+        <button onclick="meetElias()">
+            🤝 Parler à Elias
+        </button>
+
+        <button onclick="meetMira()">
+            👀 Observer Mira
+        </button>
+
+        <button onclick="meetKael()">
+            ⚔️ S'entraîner avec Kael
+        </button>
+
+    `;
+
+}
+
+
+/* =====================================================
+   PREMIERS ÉVÉNEMENTS
+===================================================== */
+
+function meetElias() {
+
+    relation("Elias", 10);
+
+    player.courage += 1;
+
+    showChoiceResult(
+        "Elias te parle de ses ambitions.",
+        "❤️ Courage +1<br>🤝 Relation Elias +10"
+    );
+
+}
+
+
+function meetMira() {
+
+    relation("Mira", 10);
+
+    player.intelligence += 2;
+
+    showChoiceResult(
+        "Mira remarque immédiatement que tu observes les détails.",
+        "🧠 Intelligence +2<br>🤝 Relation Mira +10"
+    );
+
+}
+
+
+function meetKael() {
+
+    relation("Kael", 10);
+
+    player.force += 2;
+
+    showChoiceResult(
+        "Kael accepte de s'entraîner avec toi.",
+        "⚔️ Force +2<br>🤝 Relation Kael +10"
+    );
+
+}
+
+
+function showChoiceResult(text, bonus) {
+
+    addXP(15);
+
+    saveGame();
+
+    gameDiv().innerHTML = `
+
+        <div class="event">
+
+            <p>${text}</p>
+
+            <hr>
+
+            <p>${bonus}</p>
+
+            <p>
+            ⭐ XP +15
+            </p>
+
+        </div>
+
+        <button onclick="nextDay()">
+            🌅 Passer au jour suivant
+        </button>
+
+    `;
+
+}
+
+
+/* =====================================================
+   HISTOIRE PRINCIPALE
+===================================================== */
+
+function story() {
+
+    if (player.day === 1) {
+
+        firstChoice();
+
+        return;
+
+    }
+
+
+    if (player.day === 2) {
+
+        academyEvent();
+
+        return;
+
+    }
+
+
+    if (player.day === 3) {
+
+        forestEvent();
+
+        return;
+
+    }
+
+
+    if (player.day === 4) {
+
+        wallEvent();
+
+        return;
+
+    }
+
+
+    if (player.day === 5) {
+
+        secretEvent();
+
+        return;
+
+    }
+
+
+    if (player.day >= 6) {
+
+        finalArc();
+
+        return;
+
+    }
+
+}
+
+
+/* =====================================================
+   JOUR 2
+===================================================== */
+
+function academyEvent() {
+
+    gameDiv().innerHTML = `
+
+        <h2>Jour 2 — L'entraînement</h2>
+
+        <div class="event">
+
+            L'instructeur organise une épreuve.
+
+            <br><br>
+
+            Tu dois choisir ta stratégie.
+
+        </div>
+
+        <button onclick="academyForce()">
+            ⚔️ Utiliser la force
+        </button>
+
+        <button onclick="academyAgility()">
+            🏃 Miser sur la vitesse
+        </button>
+
+        <button onclick="academyBrain()">
+            🧠 Analyser l'épreuve
+        </button>
+
+    `;
+
+}
+
+
+function academyForce() {
+
+    let score =
+        player.force + random(1, 10);
+
+    if (score >= 15) {
+
+        player.wins++;
+
+        player.reputation += 5;
+
+        addXP(40);
+
+        showDayResult(
+            "Tu réussis l'épreuve grâce à ta force.",
+            "⚔️ Réputation +5<br>⭐ XP +40"
+        );
+
+    } else {
+
+        player.losses++;
+
+        changeHP(-10);
+
+        addXP(20);
+
+        showDayResult(
+            "Ton attaque manque de précision.",
+            "❤️ Santé -10<br>⭐ XP +20"
+        );
+
+    }
+
+}
+
+
+function academyAgility() {
+
+    let score =
+        player.agility + random(1, 10);
+
+    if (score >= 14) {
+
+        player.reputation += 6;
+
+        addXP(45);
+
+        showDayResult(
+            "Tu traverses l'épreuve à une vitesse impressionnante.",
+            "🏃 Réputation +6<br>⭐ XP +45"
+        );
+
+    } else {
+
+        changeHP(-5);
+
+        addXP(20);
+
+        showDayResult(
+            "Tu vas trop vite et fais une erreur.",
+            "❤️ Santé -5<br>⭐ XP +20"
+        );
+
+    }
+
+}
+
+
+function academyBrain() {
+
+    player.intelligence += 1;
+
+    player.reputation += 4;
+
+    addXP(40);
+
+    showDayResult(
+        "Tu comprends le fonctionnement de l'épreuve.",
+        "🧠 Intelligence +1<br>🎖️ Réputation +4<br>⭐ XP +40"
+    );
+
+}
+
+
+/* =====================================================
+   JOUR 3 — FORÊT
+===================================================== */
+
+function forestEvent() {
+
+    gameDiv().innerHTML = `
+
+        <h2>Jour 3 — La forêt</h2>
+
+        <div class="event">
+
+            Ton groupe est envoyé dans une forêt
+            pour une mission d'entraînement.
+
+            <br><br>
+
+            Soudain...
+
+            <br><br>
+
+            Un bruit énorme retentit derrière les arbres.
+
+        </div>
+
+        <button onclick="forestInvestigate()">
+            🔎 Enquêter
+        </button>
+
+        <button onclick="forestHide()">
+            🌲 Se cacher
+        </button>
+
+        <button onclick="forestRun()">
+            🏃 Fuir
+        </button>
+
+    `;
+
+}
+
+
+function forestInvestigate() {
+
+    player.intelligence += 2;
+
+    addItem("Fragment étrange");
+
+    addXP(50);
+
+    showDayResult(
+        "Tu trouves un mystérieux fragment métallique.",
+        "🧠 Intelligence +2<br>🎒 Objet obtenu<br>⭐ XP +50"
+    );
+
+}
+
+
+function forestHide() {
+
+    player.courage += 2;
+
+    relation("Mira", 5);
+
+    addXP(30);
+
+    showDayResult(
+        "Tu restes silencieux jusqu'à ce que le danger disparaisse.",
+        "🦁 Courage +2<br>🤝 Mira +5<br>⭐ XP +30"
+    );
+
+}
+
+
+function forestRun() {
+
+    player.agility += 2;
+
+    changeHP(-5);
+
+    addXP(30);
+
+    showDayResult(
+        "Tu cours jusqu'à retrouver ton groupe.",
+        "🏃 Agilité +2<br>❤️ Santé -5<br>⭐ XP +30"
+    );
+
+}
+
+
+/* =====================================================
+   JOUR 4 — MUR
+===================================================== */
+
+function wallEvent() {
+
+    gameDiv().innerHTML = `
+
+        <h2>Jour 4 — L'alerte</h2>
+
+        <div class="event">
+
+            Une alarme retentit.
+
+            <br><br>
+
+            Quelque chose approche du mur extérieur.
+
+            <br><br>
+
+            Les soldats reçoivent l'ordre
+            de se préparer.
+
+        </div>
+
+        <button onclick="wallDefend()">
+            🛡️ Défendre le mur
+        </button>
+
+        <button onclick="wallScout()">
+            🔭 Observer la zone
+        </button>
+
+        <button onclick="wallHelp()">
+            🤝 Aider les civils
+        </button>
+
+    `;
+
+}
+
+
+function wallDefend() {
+
+    player.courage += 3;
+
+    player.reputation += 10;
+
+    addXP(70);
+
+    showDayResult(
+        "Tu restes sur le mur malgré la peur.",
+        "🦁 Courage +3<br>🎖️ Réputation +10<br>⭐ XP +70"
+    );
+
+}
+
+
+function wallScout() {
+
+    player.intelligence += 3;
+
+    addItem("Carte mystérieuse");
+
+    addXP(60);
+
+    showDayResult(
+        "Tu découvres une route inconnue au-delà de la forêt.",
+        "🧠 Intelligence +3<br>🎒 Carte obtenue<br>⭐ XP +60"
+    );
+
+}
+
+
+function wallHelp() {
+
+    player.reputation += 8;
+
+    player.morale += 5;
+
+    relation("Elias", 8);
+
+    addXP(55);
+
+    showDayResult(
+        "Tu aides plusieurs familles à rejoindre un lieu sûr.",
+        "🎖️ Réputation +8<br>❤️ Moral +5<br>🤝 Elias +8<br>⭐ XP +55"
+    );
+
+}
+
+
+/* =====================================================
+   JOUR 5 — SECRET
+===================================================== */
+
+function secretEvent() {
+
+    let hasFragment =
+        hasItem("Fragment étrange");
+
+    let hasMap =
+        hasItem("Carte mystérieuse");
+
+    gameDiv().innerHTML = `
+
+        <h2>Jour 5 — Le secret</h2>
+
+        <div class="event">
+
+            Une porte interdite de l'académie
+            est restée ouverte.
+
+            <br><br>
+
+            Tu dois décider quoi faire.
+
+        </div>
+
+        ${
+            hasFragment || hasMap
+            ?
+            `<button onclick="enterSecret()">
+                🔑 Entrer
+            </button>`
+            :
+            ""
+        }
+
+        <button onclick="reportSecret()">
+            🛡️ Prévenir un supérieur
+        </button>
+
+        <button onclick="ignoreSecret()">
+            🚶 Partir
+        </button>
+
+    `;
+
+}
+
+
+function enterSecret() {
+
+    player.intelligence += 4;
+
+    player.courage += 2;
+
+    addItem("Document interdit");
+
+    addXP(100);
+
+    showDayResult(
+        "Tu découvres un document qui remet en question tout ce que l'on t'a appris.",
+        "🧠 Intelligence +4<br>🦁 Courage +2<br>🎒 Document obtenu<br>⭐ XP +100"
+    );
+
+}
+
+
+function reportSecret() {
+
+    player.reputation += 12;
+
+    addXP(40);
+
+    showDayResult(
+        "Tu signales la porte aux responsables.",
+        "🎖️ Réputation +12<br>⭐ XP +40"
+    );
+
+}
+
+
+function ignoreSecret() {
+
+    player.morale -= 3;
+
+    addXP(20);
+
+    showDayResult(
+        "Tu décides de ne pas intervenir.",
+        "❤️ Moral -3<br>⭐ XP +20"
+    );
+
+}
+
+
+/* =====================================================
+   RÉSULTAT D'UNE JOURNÉE
+===================================================== */
+
+function showDayResult(text, bonus) {
+
+    saveGame();
+
+    gameDiv().innerHTML = `
+
+        <div class="event">
+
+            <p>${text}</p>
+
+            <hr>
+
+            <p>${bonus}</p>
+
+        </div>
+
+        <button onclick="nextDay()">
+            🌅 Jour suivant
+        </button>
+
+        <button onclick="showGame()">
+            📊 Voir mon personnage
+        </button>
+
+    `;
+
+}
+
+
+/* =====================================================
+   ENTRAÎNEMENT
+===================================================== */
+
+function training() {
+
+    gameDiv().innerHTML = `
+
+        <h2>🏋️ Entraînement</h2>
+
+        <p>
+        Choisis ton entraînement.
+        </p>
+
+        <button onclick="trainForce()">
+            ⚔️ Force
+        </button>
+
+        <button onclick="trainAgility()">
+            🏃 Agilité
+        </button>
+
+        <button onclick="trainBrain()">
+            🧠 Intelligence
+        </button>
+
+        <button onclick="trainCourage()">
+            🦁 Courage
+        </button>
+
+        <button onclick="showGame()">
+            ↩️ Retour
+        </button>
+
+    `;
+
+}
+
+
+function trainForce() {
+
+    player.force += 2;
+
+    changeHP(-5);
+
+    addXP(20);
+
+    saveGame();
+
+    alert("⚔️ Force +2\n❤️ Santé -5");
+
+    showGame();
+
+}
+
+
+function trainAgility() {
+
+    player.agility += 2;
+
+    changeHP(-5);
+
+    addXP(20);
+
+    saveGame();
+
+    alert("🏃 Agilité +2\n❤️ Santé -5");
+
+    showGame();
+
+}
+
+
+function trainBrain() {
+
+    player.intelligence += 2;
+
+    addXP(20);
+
+    saveGame();
+
+    alert("🧠 Intelligence +2");
+
+    showGame();
+
+}
+
+
+function trainCourage() {
+
+    player.courage += 2;
+
+    player.morale += 2;
+
+    addXP(20);
+
+    saveGame();
+
+    alert("🦁 Courage +2\n❤️ Moral +2");
+
+    showGame();
+
+}
+
+
+/* =====================================================
+   MISSIONS
+===================================================== */
+
+function mission() {
+
+    gameDiv().innerHTML = `
+
+        <h2>⚔️ Missions</h2>
+
+        <div class="card">
+
+            <p>
+            Choisis une mission.
+            </p>
+
+            <button onclick="missionScout()">
+                🔭 Reconnaissance
+            </button>
+
+            <button onclick="missionRescue()">
+                🚑 Secours
+            </button>
+
+            <button onclick="missionCombat()">
+                ⚔️ Combat
+            </button>
+
+            <button onclick="showGame()">
+                ↩️ Retour
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+
+function missionScout() {
+
+    let score =
+        player.agility +
+        player.intelligence +
+        random(1, 10);
+
+    if (score >= 22) {
+
+        player.reputation += 10;
+
+        addXP(80);
+
+        showDayResult(
+            "La reconnaissance est un succès.",
+            "🎖️ Réputation +10<br>⭐ XP +80"
+        );
+
+    } else {
+
+        changeHP(-15);
+
+        addXP(30);
+
+        showDayResult(
+            "Tu te perds pendant la reconnaissance.",
+            "❤️ Santé -15<br>⭐ XP +30"
+        );
+
+    }
+
+}
+
+
+function missionRescue() {
+
+    let score =
+        player.courage +
+        player.agility +
+        random(1, 10);
+
+    if (score >= 20) {
+
+        player.reputation += 12;
+
+        player.morale += 8;
+
+        addXP(90);
+
+        showDayResult(
+            "Tu réussis à sauver les personnes bloquées.",
+            "🎖️ Réputation +12<br>❤️ Moral +8<br>⭐ XP +90"
+        );
+
+    } else {
+
+        changeHP(-10);
+
+        player.morale -= 5;
+
+        addXP(35);
+
+        showDayResult(
+            "La mission devient plus difficile que prévu.",
+            "❤️ Santé -10<br>❤️ Moral -5<br>⭐ XP +35"
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   COMBAT
+===================================================== */
+
+function missionCombat() {
+
+    let enemyHP = random(35, 65);
+
+    combat(enemyHP);
+
+}
+
+
+function combat(enemyHP) {
+
+    gameDiv().innerHTML = `
+
+        <h2>⚔️ COMBAT</h2>
+
+        <div class="event">
+
+            Une créature gigantesque apparaît.
+
+            <br><br>
+
+            ❤️ Ton énergie :
+            ${player.hp}
+
+            <br>
+
+            👹 Ennemi :
+            ${enemyHP}
+
+        </div>
+
+        <button onclick="attack(${enemyHP})">
+            ⚔️ Attaquer
+        </button>
+
+        <button onclick="evade(${enemyHP})">
+            🏃 Esquiver
+        </button>
+
+    `;
+
+}
+
+
+function attack(enemyHP) {
+
+    let damage =
+        player.force +
+        random(5, 15);
+
+    enemyHP -= damage;
+
+    if (enemyHP <= 0) {
+
+        player.wins++;
+
+        player.reputation += 15;
+
+        addXP(120);
+
+        showDayResult(
+            "Tu remportes le combat !",
+            "🏆 Victoire<br>🎖️ Réputation +15<br>⭐ XP +120"
+        );
+
+        return;
+
+    }
+
+
+    let enemyDamage =
+        random(5, 15);
+
+    changeHP(-enemyDamage);
+
+
+    if (player.hp <= 0) {
+
+        player.losses++;
+
+        endingDefeat();
+
+        return;
+
+    }
+
+
+    combat(enemyHP);
+
+}
+
+
+function evade(enemyHP) {
+
+    let chance =
+        player.agility +
+        random(1, 20);
+
+    if (chance >= 18) {
+
+        addXP(60);
+
+        showDayResult(
+            "Tu esquives l'attaque et prends la fuite.",
+            "🏃 Esquive réussie<br>⭐ XP +60"
+        );
+
+    } else {
+
+        changeHP(-random(10, 20));
+
+        if (player.hp <= 0) {
+
+            endingDefeat();
+
+            return;
+
+        }
+
+        combat(enemyHP);
+
+    }
+
+}
+
+
+/* =====================================================
+   ÉVÉNEMENTS ALÉATOIRES
+===================================================== */
+
+function randomEvent() {
+
+    let roll = random(1, 5);
+
+    if (roll === 1) {
+
+        randomMerchant();
+
+        return;
+
+    }
+
+    if (roll === 2) {
+
+        randomRival();
+
+        return;
+
+    }
+
+    if (roll === 3) {
+
+        randomDiscovery();
+
+        return;
+
+    }
+
+    if (roll === 4) {
+
+        randomInjury();
+
+        return;
+
+    }
+
+    if (roll === 5) {
+
+        randomFriend();
+
+        return;
+
+    }
+
+}
+
+
+/* =====================================================
+   ÉVÉNEMENTS ALÉATOIRES
+===================================================== */
+
+function randomMerchant() {
+
+    gameDiv().innerHTML = `
+
+        <h2>🎒 Marchand</h2>
+
+        <div class="event">
+
+            Un marchand ambulant te propose
+            une ration spéciale.
+
+            <br><br>
+
+            Prix : 20 pièces.
+
+        </div>
+
+        <button onclick="buyFood()">
+            💰 Acheter
+        </button>
+
+        <button onclick="showGame()">
+            🚶 Refuser
+        </button>
+
+    `;
+
+}
+
+
+function buyFood() {
+
+    if (player.money < 20) {
+
+        alert("Tu n'as pas assez d'argent.");
+
+        showGame();
+
+        return;
+
+    }
+
+    player.money -= 20;
+
+    addItem("Ration spéciale");
+
+    player.morale += 5;
+
+    saveGame();
+
+    showGame();
+
+}
+
+
+function randomRival() {
+
+    player.reputation -= 3;
+
+    gameDiv().innerHTML = `
+
+        <h2>😠 Rival</h2>
+
+        <div class="event">
+
+            Une autre recrue te provoque.
+
+            <br><br>
+
+            Tu peux répondre ou partir.
+
+        </div>
+
+        <button onclick="rivalFight()">
+            ⚔️ Accepter
+        </button>
+
+        <button onclick="rivalIgnore()">
+            🚶 Ignorer
+        </button>
+
+    `;
+
+}
+
+
+function rivalFight() {
+
+    player.force += 1;
+
+    player.courage += 1;
+
+    addXP(35);
+
+    showGame();
+
+}
+
+
+function rivalIgnore() {
+
+    player.intelligence += 1;
+
+    addXP(25);
+
+    showGame();
+
+}
+
+
+function randomDiscovery() {
+
+    addItem("Objet inconnu");
+
+    player.intelligence += 1;
+
+    addXP(40);
+
+    alert(
+        "🔎 Tu trouves un objet étrange."
+    );
+
+    showGame();
+
+}
+
+
+function randomInjury() {
+
+    changeHP(-10);
+
+    player.morale -= 3;
+
+    alert(
+        "⚠️ Un accident pendant l'entraînement te blesse légèrement."
+    );
+
+    showGame();
+
+}
+
+
+function randomFriend() {
+
+    relation("Elias", 3);
+
+    relation("Mira", 3);
+
+    relation("Kael", 3);
+
+    player.morale += 5;
+
+    addXP(25);
+
+    alert(
+        "🤝 Tu passes du temps avec ton groupe."
+    );
+
+    showGame();
+
+}
+
+
+/* =====================================================
+   ARC FINAL
+===================================================== */
+
+function finalArc() {
+
+    let power =
+        player.force +
+        player.agility +
+        player.intelligence +
+        player.courage;
+
+
+    gameDiv().innerHTML = `
+
+        <h2>🔥 Le choix final</h2>
+
+        <div class="event">
+
+            Plusieurs années de formation ont passé.
+
+            <br><br>
+
+            Une information secrète vient d'être découverte :
+
+            <br><br>
+
+            <b>
+            Les murs ne sont peut-être pas ce qu'ils semblent être.
+            </b>
+
+            <br><br>
+
+            Ton groupe te demande quoi faire.
+
+        </div>
+
+        <button onclick="endingTruth()">
+            🔎 Chercher la vérité
+        </button>
+
+        <button onclick="endingProtect()">
+            🛡️ Protéger les habitants
+        </button>
+
+        <button onclick="endingArmy()">
+            ⚔️ Servir l'armée
+        </button>
+
+    `;
+
+}
+
+
+/* =====================================================
+   FINS
+===================================================== */
+
+function endingTruth() {
+
+    if (
+        player.intelligence >= 20 &&
+        player.courage >= 15
+    ) {
+
+        ending(
+            "LA VÉRITÉ",
+            "Tu découvres une vérité que personne n'aurait imaginée. Ton nom restera associé à cette découverte."
+        );
+
+    } else {
+
+        ending(
+            "LE MYSTÈRE",
+            "Tu cherches la vérité, mais certaines réponses restent hors de ta portée."
+        );
+
+    }
+
+}
+
+
+function endingProtect() {
+
+    if (player.reputation >= 25) {
+
+        ending(
+            "LE PROTECTEUR",
+            "Grâce à ta réputation, de nombreuses personnes décident de te suivre. Tu consacres ta vie à protéger les murs."
+        );
+
+    } else {
+
+        ending(
+            "LE SOLDAT",
+            "Tu protèges ceux qui t'entourent, même si ton nom reste inconnu."
+        );
+
+    }
+
+}
+
+
+function endingArmy() {
+
+    if (player.force + player.courage >= 35) {
+
+        ending(
+            "LE COMMANDANT",
+            "Tes années d'entraînement t'ont permis d'atteindre une position importante dans l'armée."
+        );
+
+    } else {
+
+        ending(
+            "LE VÉTÉRAN",
+            "Tu continues à servir malgré toutes les épreuves."
+        );
+
+    }
+
+}
+
+
+function ending(title, text) {
+
+    saveGame();
+
+    gameDiv().innerHTML = `
+
+        <h1>🏆 FIN</h1>
+
+        <h2>${title}</h2>
+
+        <div class="event">
+
+            ${text}
+
+            <hr>
+
+            <p>
+            Niveau : ${player.level}
+            </p>
+
+            <p>
+            Victoires : ${player.wins}
+            </p>
+
+            <p>
+            Défaites : ${player.losses}
+            </p>
+
+            <p>
+            Réputation : ${player.reputation}
+            </p>
+
+        </div>
+
+        <button onclick="resetGame()">
+            🔄 Recommencer
+        </button>
+
+    `;
+
+}
+
+
+function endingDefeat() {
+
+    ending(
+        "LA CHUTE",
+        "Ton aventure s'arrête ici. Mais ton parcours peut être recommencé avec de nouvelles décisions."
+    );
+
+}
+
+
+/* =====================================================
+   NOUVELLE PARTIE
+===================================================== */
+
+function resetGame() {
+
+    if (
+        confirm(
+            "Commencer une nouvelle partie ?"
+        )
+    ) {
+
+        localStorage.removeItem(
+            "atlasSave"
+        );
+
+        location.reload();
+
+    }
+
+}
+
+
+/* =====================================================
+   DÉMARRAGE
+===================================================== */
+
+let existingSave =
+    localStorage.getItem("atlasSave");
+
+
+if (existingSave) {
+
+    gameDiv().innerHTML = `
+
+        <h1>ATLAS</h1>
+
+        <h2>L'Héritage des Murs</h2>
+
+        <div class="card">
+
+            <p>
+            Une sauvegarde existe.
+            </p>
+
+            <button onclick="loadGame()">
+                ▶️ Continuer
+            </button>
+
+            <button onclick="startCreation()">
+                🆕 Nouvelle partie
+            </button>
+
+        </div>
+
+    `;
+
+} else {
+
+    startCreation();
+
+}
+
+</script>
+
+</body>
+</html>
